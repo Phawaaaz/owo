@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Owo – Daily Spending</title>
+<meta name="description" content="Track your daily spending in naira. Works offline, no account, your data stays on your phone.">
+<meta name="theme-color" content="#0b6e4f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Owo">
+<style>
+:root {
+  --bg: #f6f4ef; --surface: #ffffff; --surface-2: #efece4; --text: #17201b; --muted: #66706a;
+  --line: #e3dfd5; --brand: #0b6e4f; --brand-ink: #ffffff; --brand-soft: #dcefe6;
+  --warn: #b8860b; --danger: #c2412d; --danger-soft: #f8e1dc; --radius: 18px;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1412; --surface: #171e1b; --surface-2: #1f2824; --text: #eef2ef; --muted: #96a29b;
+    --line: #2a342f; --brand: #2fbf8a; --brand-ink: #06231a; --brand-soft: #173a2d;
+    --warn: #e0b341; --danger: #ef6b55; --danger-soft: #3a1f1a; --shadow: none; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 0 16px; }
+
+/* Top bar */
+.top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-top: env(safe-area-inset-top); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 20px; letter-spacing: -.01em; }
+.brand img { width: 30px; height: 30px; border-radius: 9px; }
+.month { display: flex; align-items: center; gap: 2px; }
+.month span { min-width: 92px; text-align: center; font-weight: 600; font-size: 15px; }
+.icon-btn { width: 38px; height: 38px; border: 0; border-radius: 12px; background: transparent; display: grid; place-items: center; }
+.icon-btn:hover { background: var(--surface-2); }
+.icon-btn:disabled { opacity: .3; cursor: default; background: transparent; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin: 12px 0; box-shadow: var(--shadow); }
+.card h2 { margin: 0 0 12px; font-size: 15px; font-weight: 650; display: flex; justify-content: space-between; align-items: baseline; }
+.card h2 a, .link { color: var(--brand); font-weight: 600; font-size: 14px; text-decoration: none; background: none; border: 0; padding: 0; }
+.label { color: var(--muted); font-size: 14px; }
+.big { font-size: 40px; font-weight: 760; letter-spacing: -.02em; line-height: 1.1; margin: 4px 0 14px; }
+.bar { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--brand); border-radius: 99px; transition: width .3s; }
+.bar.warn i { background: var(--warn); }
+.bar.over i { background: var(--danger); }
+.row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--muted); margin-top: 8px; }
+.tip { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--brand-soft); font-size: 15px; }
+.tip.over { background: var(--danger-soft); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); min-width: 0; }
+.stat b { display: block; font-size: 17px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat .label { font-size: 12.5px; }
+
+/* Category breakdown */
+.cats { display: grid; gap: 12px; }
+.cat-line { display: grid; grid-template-columns: 34px 1fr auto; gap: 4px 10px; align-items: center; }
+.cat-line .em { grid-row: span 2; }
+.cat-line .name { font-size: 14.5px; }
+.cat-line .amt { font-size: 14.5px; font-weight: 600; }
+.cat-line .bar { grid-column: 2 / 4; height: 6px; }
+.em { width: 34px; height: 34px; border-radius: 11px; background: var(--surface-2); display: grid; place-items: center; font-size: 18px; }
+
+/* Transactions */
+.tx { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0; border: 0; background: none; text-align: left; border-top: 1px solid var(--line); }
+.tx:first-child { border-top: 0; }
+.tx .mid { flex: 1; min-width: 0; }
+.tx .t1 { display: block; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx .t2 { display: block; color: var(--muted); font-size: 13px; }
+.tx .amt { font-weight: 650; white-space: nowrap; text-align: right; }
+.tx .fee { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.day { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-weight: 600; margin: 18px 4px 6px; text-transform: uppercase; letter-spacing: .04em; }
+.empty { text-align: center; padding: 34px 12px; color: var(--muted); }
+.empty .em { margin: 0 auto 12px; width: 56px; height: 56px; font-size: 28px; border-radius: 18px; }
+.empty b { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
+
+/* Forms */
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field > span { font-size: 13.5px; color: var(--muted); font-weight: 600; }
+.input { width: 100%; height: 46px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 0 14px; outline: none; }
+.input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.money-in { position: relative; }
+.money-in::before { content: "₦"; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; }
+.money-in .input { padding-left: 30px; }
+.search { display: flex; gap: 8px; margin: 12px 0 4px; }
+.search .input { flex: 1; }
+.search select { width: auto; max-width: 44%; }
+.btn { height: 48px; border: 0; border-radius: 14px; padding: 0 18px; font-weight: 650; background: var(--surface-2); }
+.btn.primary { background: var(--brand); color: var(--brand-ink); }
+.btn.danger { background: var(--danger-soft); color: var(--danger); }
+.btn.block { width: 100%; }
+.list-btns { display: grid; gap: 10px; }
+.list-btns .btn { text-align: left; display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); height: 56px; }
+.list-btns .btn small { display: block; color: var(--muted); font-weight: 400; font-size: 12.5px; }
+.budget-row { display: grid; grid-template-columns: 34px 1fr 128px; gap: 6px 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.budget-row:first-of-type { border-top: 0; }
+.budget-row .input { height: 40px; font-size: 15px; text-align: right; padding-right: 12px; }
+.budget-row .money-in::before { left: 10px; }
+.budget-row .money-in .input { padding-left: 24px; }
+.budget-row .sub { grid-column: 2 / 4; font-size: 12.5px; color: var(--muted); display: grid; gap: 4px; }
+.budget-row .bar { height: 5px; }
+p.note { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+
+/* Bottom nav and add button */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+.tabs .wrap { display: grid; grid-template-columns: 1fr 1fr 72px 1fr 1fr; height: 64px; align-items: center; padding: 0 6px; }
+.tab { border: 0; background: none; display: grid; justify-items: center; gap: 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; padding: 6px 0; }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-current="page"] { color: var(--brand); }
+.fab { justify-self: center; width: 58px; height: 58px; margin-top: -26px; border-radius: 20px; border: 4px solid var(--bg); background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; box-shadow: 0 6px 16px rgba(11,110,79,.35); }
+.fab svg { width: 26px; height: 26px; }
+
+/* Add sheet */
+dialog { border: 0; padding: 0; background: transparent; color: var(--text); max-width: 520px; width: 100%; margin: auto auto 0; max-height: 94vh; }
+dialog::backdrop { background: rgba(10,15,12,.45); }
+.sheet { background: var(--bg); border-radius: 24px 24px 0 0; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 94vh; overflow-y: auto; }
+dialog[open] .sheet { animation: up .22s ease-out; }
+@keyframes up { from { transform: translateY(40px); opacity: .4; } }
+.grab { width: 40px; height: 5px; border-radius: 9px; background: var(--line); margin: 0 auto 10px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.sheet-head h3 { margin: 0; font-size: 18px; }
+.amount-in { position: relative; margin: 4px 0 10px; }
+.amount-in::before { content: "₦"; position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 34px; font-weight: 700; color: var(--muted); }
+.amount-in input { width: 100%; border: 0; border-bottom: 2px solid var(--line); background: transparent; font-size: 44px; font-weight: 760; padding: 4px 0 4px 34px; outline: none; letter-spacing: -.02em; }
+.amount-in input:focus { border-color: var(--brand); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; height: 34px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; font-weight: 600; }
+.cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.cat-opt { position: relative; }
+.cat-opt input, .seg input { position: absolute; opacity: 0; pointer-events: none; }
+.cat-opt span { display: grid; justify-items: center; gap: 4px; padding: 10px 4px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); font-size: 11.5px; font-weight: 600; text-align: center; line-height: 1.15; min-height: 72px; cursor: pointer; }
+.cat-opt span i { font-style: normal; font-size: 22px; }
+.cat-opt input:checked + span { border-color: var(--brand); background: var(--brand-soft); }
+.cat-opt input:focus-visible + span, .seg input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 14px; }
+.seg label { position: relative; }
+.seg span { display: block; text-align: center; padding: 9px 0; border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.seg input:checked + span { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+.sheet-actions .primary { flex: 1; }
+.err { color: var(--danger); font-size: 13.5px; min-height: 18px; margin: -4px 0 6px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 14px; font-size: 14.5px; display: flex; gap: 14px; align-items: center; transition: .2s; z-index: 20; max-width: calc(100% - 32px); }
+.toast.show { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
+.toast button { border: 0; background: none; color: var(--brand); font-weight: 700; padding: 0; filter: brightness(1.4); }
+.banner { background: var(--danger-soft); color: var(--danger); padding: 10px 14px; border-radius: 12px; font-size: 14px; margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><img src="icon.svg" alt="">Owo</div>
+    <div class="month">
+      <button class="icon-btn" id="prev" aria-label="Previous month"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <span id="month-label"></span>
+      <button class="icon-btn" id="next" aria-label="Next month"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="view"></main>
+
+<nav class="tabs" aria-label="Main">
+  <div class="wrap">
+    <button class="tab" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+    <button class="tab" data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>History</button>
+    <button class="fab" id="add" aria-label="Add expense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tab" data-tab="budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/></svg>Budget</button>
+    <button class="tab" data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>More</button>
+  </div>
+</nav>
+
+<dialog id="sheet" aria-labelledby="sheet-title">
+  <form class="sheet" id="form" method="dialog" novalidate>
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h3 id="sheet-title">Add expense</h3>
+      <button type="button" class="icon-btn" id="close" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="amount-in"><input id="f-amt" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Amount in naira"></div>
+    <div class="chips" id="quick"></div>
+    <div class="err" id="f-err"></div>
+    <div class="field"><span>Category</span><div class="cat-grid" id="f-cats"></div></div>
+    <div class="field"><span>Paid with</span><div class="seg" id="f-method"></div></div>
+    <div class="field" id="fee-field" hidden><span>POS charge</span><div class="money-in"><input class="input num" id="f-fee" inputmode="decimal" placeholder="e.g. 100"></div></div>
+    <div class="two">
+      <label class="field"><span>Note (optional)</span><input class="input" id="f-note" maxlength="80" placeholder="e.g. Keke to work"></label>
+      <label class="field"><span>Date</span><input class="input" id="f-date" type="date"></label>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn danger" id="f-del" hidden>Delete</button>
+      <button type="submit" class="btn primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span></span><button type="button" hidden>Undo</button></div>
+<input type="file" id="restore-file" accept="application/json,.json" hidden>
+
+<script>
+const CATS = [
+  { id: "food", name: "Food", em: "🍲" },
+  { id: "transport", name: "Transport", em: "🚌" },
+  { id: "data", name: "Data & Airtime", em: "📶" },
+  { id: "fuel", name: "Fuel", em: "⛽" },
+  { id: "power", name: "Light (NEPA)", em: "💡" },
+  { id: "bills", name: "Rent & Bills", em: "🏠" },
+  { id: "family", name: "Family", em: "👪" },
+  { id: "giving", name: "Giving", em: "🙏" },
+  { id: "ajo", name: "Ajo & Savings", em: "🐷" },
+  { id: "health", name: "Health", em: "💊" },
+  { id: "fun", name: "Outings", em: "🎉" },
+  { id: "other", name: "Other", em: "🧾" },
+];
+const METHODS = ["Transfer", "Cash", "POS", "Card"];
+const QUICK = [200, 500, 1000, 2000, 5000, 10000];
+const KEY = "owo:v1";
+const catById = Object.fromEntries(CATS.map((c) => [c.id, c]));
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = (n) => (n < 0 ? "-" : "") + "₦" + Math.round(Math.abs(n || 0)).toLocaleString("en-NG");
+const short = (n) => n >= 1e6 ? "₦" + +(n / 1e6).toFixed(1) + "m" : n >= 1e4 ? "₦" + +(n / 1e3).toFixed(1) + "k" : money(n);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const ymOf = (d) => iso(d).slice(0, 7);
+const spend = (t) => t.amt + (t.fee || 0);
+const sum = (list) => list.reduce((s, t) => s + spend(t), 0);
+
+// "2k", "1.5k", "₦2,500" and "1m" all work.
+function parseAmount(s) {
+  const m = String(s).trim().toLowerCase().replace(/[₦,\s]/g, "").match(/^(\d*\.?\d+)(k|m)?$/);
+  if (!m) return NaN;
+  return Math.round(parseFloat(m[1]) * (m[2] === "k" ? 1e3 : m[2] === "m" ? 1e6 : 1));
+}
+
+// Storage -----------------------------------------------------------------------
+let storageOk = true;
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    const d = raw ? JSON.parse(raw) : {};
+    return { budget: d.budget || 0, catBudgets: d.catBudgets || {}, tx: Array.isArray(d.tx) ? d.tx : [], lastMethod: d.lastMethod || "Transfer" };
+  } catch { storageOk = false; return { budget: 0, catBudgets: {}, tx: [], lastMethod: "Transfer" }; }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); storageOk = true; } catch { storageOk = false; }
+}
+const S = load();
+
+// View state ---------------------------------------------------------------------
+const today = () => new Date();
+let tab = "home";
+let ym = ymOf(today());
+let filter = { q: "", cat: "" };
+let editing = null;
+
+const monthTx = () => S.tx.filter((t) => t.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date) || b.ts - a.ts);
+const monthName = (ymStr, opts = { month: "long", year: "numeric" }) => new Date(ymStr + "-01T12:00").toLocaleDateString("en-NG", opts);
+function byCat(list) {
+  const out = {};
+  for (const t of list) out[t.cat] = (out[t.cat] || 0) + spend(t);
+  return Object.entries(out).sort((a, b) => b[1] - a[1]);
+}
+function dayLabel(d) {
+  const t = iso(today()), y = iso(new Date(Date.now() - 864e5));
+  if (d === t) return "Today";
+  if (d === y) return "Yesterday";
+  return new Date(d + "T12:00").toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short" });
+}
+const barClass = (p) => (p > 100 ? "bar over" : p > 85 ? "bar warn" : "bar");
+
+function txRow(t) {
+  const c = catById[t.cat] || catById.other;
+  return `<button class="tx" data-edit="${t.id}">
+    <span class="em" aria-hidden="true">${c.em}</span>
+    <span class="mid"><span class="t1">${esc(t.note || c.name)}</span><span class="t2">${t.note ? esc(c.name) + " · " : ""}${t.method}</span></span>
+    <span class="amt num">${money(t.amt)}${t.fee ? `<span class="fee">+${money(t.fee)} charge</span>` : ""}</span>
+  </button>`;
+}
+
+// Screens ------------------------------------------------------------------------
+function home() {
+  const list = monthTx();
+  const spent = sum(list);
+  const isNow = ym === ymOf(today());
+  const now = today();
+  const dim = new Date(+ym.slice(0, 4), +ym.slice(5), 0).getDate();
+  const daysLeft = isNow ? dim - now.getDate() + 1 : 0;
+  const left = S.budget - spent;
+  const pct = S.budget ? (spent / S.budget) * 100 : 0;
+  const todaySpent = sum(list.filter((t) => t.date === iso(now)));
+  const fees = list.reduce((s, t) => s + (t.fee || 0), 0);
+  const avg = spent / (isNow ? now.getDate() : dim);
+
+  let budgetBlock = `<button class="link" data-tab="budget">Set a monthly budget →</button>`;
+  if (S.budget) {
+    let tip = "";
+    if (left < 0) tip = `<p class="tip over">You're <b class="num">${money(-left)}</b> over your budget this month.</p>`;
+    else if (isNow) tip = `<p class="tip">You can spend <b class="num">${money(left / daysLeft)} a day</b> for the next ${daysLeft} day${daysLeft > 1 ? "s" : ""}.</p>`;
+    budgetBlock = `<div class="${barClass(pct)}"><i style="width:${Math.min(pct, 100)}%"></i></div>
+      <div class="row num"><span>of ${money(S.budget)}</span><span>${left >= 0 ? money(left) + " left" : money(-left) + " over"}</span></div>${tip}`;
+  }
+
+  if (!S.tx.length) {
+    return `<section class="card hero"><div class="label">Spent in ${monthName(ym, { month: "long" })}</div><div class="big num">₦0</div>${budgetBlock}</section>
+      <section class="card empty"><div class="em">🪙</div><b>Where did my money go?</b>Tap <b style="display:inline">+</b> each time you spend: keke, data, foodstuff, POS charges. In a week you'll know exactly where your money goes.</section>`;
+  }
+
+  const cats = byCat(list);
+  const top = cats[0] ? cats[0][1] : 1;
+  return `
+    <section class="card hero">
+      <div class="label">Spent in ${monthName(ym, { month: "long" })}</div>
+      <div class="big num">${money(spent)}</div>
+      ${budgetBlock}
+    </section>
+    <section class="stats">
+      <div class="stat"><span class="label">${isNow ? "Today" : "Entries"}</span><b class="num">${isNow ? short(todaySpent) : list.length}</b></div>
+      <div class="stat"><span class="label">Daily average</span><b class="num">${short(avg)}</b></div>
+      <div class="stat"><span class="label">POS charges</span><b class="num">${short(fees)}</b></div>
+    </section>
+    <section class="card">
+      <h2>Where it went</h2>
+      ${cats.length ? `<div class="cats">${cats.map(([id, v]) => {
+        const c = catById[id] || catById.other;
+        return `<div class="cat-line"><span class="em" aria-hidden="true">${c.em}</span><span class="name">${c.name}</span><span class="amt num">${money(v)}</span><div class="bar"><i style="width:${(v / top) * 100}%"></i></div></div>`;
+      }).join("")}</div>` : `<p class="note">Nothing spent in ${monthName(ym, { month: "long" })}.</p>`}
+    </section>
+    ${list.length ? `<section class="card"><h2>Recent <a href="#" data-tab="history">See all</a></h2>${list.slice(0, 5).map(txRow).join("")}</section>` : ""}`;
+}
+
+function history() {
+  const q = filter.q.trim().toLowerCase();
+  const list = monthTx().filter((t) => (!filter.cat || t.cat === filter.cat) &&
+    (!q || (t.note || "").toLowerCase().includes(q) || catById[t.cat]?.name.toLowerCase().includes(q) || t.method.toLowerCase().includes(q)));
+  const days = {};
+  for (const t of list) (days[t.date] ||= []).push(t);
+  const body = list.length
+    ? Object.entries(days).map(([d, ts]) => `<div class="day"><span>${dayLabel(d)}</span><span class="num">${money(sum(ts))}</span></div><div class="card" style="margin:0;padding:4px 16px">${ts.map(txRow).join("")}</div>`).join("")
+    : `<div class="empty"><div class="em">🔎</div><b>${q || filter.cat ? "No matches" : "No expenses yet"}</b>${q || filter.cat ? "Try a different search." : `Nothing recorded for ${monthName(ym)}.`}</div>`;
+  return `<div class="search">
+      <input class="input" id="q" type="search" placeholder="Search notes" value="${esc(filter.q)}" aria-label="Search">
+      <select class="input" id="cat-filter" aria-label="Category"><option value="">All</option>${CATS.map((c) => `<option value="${c.id}"${filter.cat === c.id ? " selected" : ""}>${c.name}</option>`).join("")}</select>
+    </div>
+    ${list.length ? `<div class="row num" style="margin:8px 4px 0"><span>${list.length} expense${list.length > 1 ? "s" : ""}</span><span>Total ${money(sum(list))}</span></div>` : ""}
+    ${body}`;
+}
+
+function budget() {
+  const list = monthTx();
+  const spentBy = Object.fromEntries(byCat(list));
+  return `<section class="card">
+      <h2>Monthly budget</h2>
+      <div class="money-in"><input class="input num" id="b-total" inputmode="decimal" placeholder="e.g. 150,000" value="${S.budget ? S.budget.toLocaleString("en-NG") : ""}" aria-label="Monthly budget"></div>
+      <p class="note">The most you want to spend in a month. Owo will tell you how much you can spend each day.</p>
+    </section>
+    <section class="card">
+      <h2>Limits by category <span class="label" style="font-weight:400">optional</span></h2>
+      ${CATS.map((c) => {
+        const lim = S.catBudgets[c.id] || 0, sp = spentBy[c.id] || 0, p = lim ? (sp / lim) * 100 : 0;
+        return `<div class="budget-row">
+          <span class="em" aria-hidden="true">${c.em}</span><span>${c.name}</span>
+          <div class="money-in"><input class="input num" data-cat-budget="${c.id}" inputmode="decimal" placeholder="No limit" value="${lim ? lim.toLocaleString("en-NG") : ""}" aria-label="${c.name} limit"></div>
+          <div class="sub"><span class="num">${money(sp)} spent${lim ? ` of ${money(lim)}${sp > lim ? " · over by " + money(sp - lim) : ""}` : ""}</span>${lim ? `<div class="${barClass(p)}"><i style="width:${Math.min(p, 100)}%"></i></div>` : ""}</div>
+        </div>`;
+      }).join("")}
+    </section>`;
+}
+
+function more() {
+  return `<section class="card">
+      <h2>Your data</h2>
+      <p class="note" style="margin:0 0 14px">Everything stays on this phone. No account and no internet needed. Download a backup now and then so you don't lose it if you change phones.</p>
+      <div class="list-btns">
+        <button class="btn" data-act="csv"><span class="em">📊</span><span>Export to spreadsheet<small>CSV file for Excel or Google Sheets</small></span></button>
+        <button class="btn" data-act="backup"><span class="em">💾</span><span>Download backup<small>${S.tx.length} expense${S.tx.length === 1 ? "" : "s"} saved</small></span></button>
+        <button class="btn" data-act="restore"><span class="em">📥</span><span>Restore from backup<small>Load a backup file from before</small></span></button>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Add Owo to your home screen</h2>
+      <p class="note" style="margin:0">On <b>Android (Chrome)</b>, tap ⋮ and choose <b>Add to Home screen</b>. On <b>iPhone (Safari)</b>, tap Share and choose <b>Add to Home Screen</b>. It then opens like an app and works without data.</p>
+    </section>
+    <section class="card">
+      <h2>Start over</h2>
+      <button class="btn danger block" data-act="wipe">Delete all my data</button>
+    </section>
+    <p class="note" style="text-align:center;margin:18px 0">Owo means money in Yoruba. Built in Nigeria by <a class="link" href="https://akinola.tech" target="_blank" rel="noopener">Fawaz Akinola</a>.</p>`;
+}
+
+const SCREENS = { home, history, budget, more };
+function render() {
+  $("#month-label").textContent = monthName(ym, { month: "short", year: "numeric" });
+  $("#next").disabled = ym >= ymOf(today());
+  $("#view").innerHTML = (storageOk ? "" : `<div class="banner">Your browser is blocking storage, so new entries won't be saved. Open Owo in a normal (not private) tab.</div>`) + SCREENS[tab]();
+  document.querySelectorAll(".tab").forEach((b) => b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+}
+
+function go(t) { tab = t; render(); window.scrollTo(0, 0); }
+function shiftMonth(n) {
+  const d = new Date(ym + "-01T12:00");
+  d.setMonth(d.getMonth() + n);
+  ym = ymOf(d);
+  render();
+}
+
+// Toast with optional undo ------------------------------------------------------
+let toastTimer;
+function toast(msg, undo) {
+  const el = $("#toast"), btn = $("button", el);
+  $("span", el).textContent = msg;
+  btn.hidden = !undo;
+  btn.onclick = () => { undo(); el.classList.remove("show"); };
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), undo ? 5000 : 2200);
+}
+
+// Add / edit sheet --------------------------------------------------------------
+const sheet = $("#sheet");
+$("#quick").innerHTML = QUICK.map((n) => `<button type="button" class="chip num" data-q="${n}">${short(n)}</button>`).join("");
+$("#f-cats").innerHTML = CATS.map((c) => `<label class="cat-opt"><input type="radio" name="cat" value="${c.id}"><span><i aria-hidden="true">${c.em}</i>${c.name}</span></label>`).join("");
+$("#f-method").innerHTML = METHODS.map((m) => `<label><input type="radio" name="method" value="${m}"><span>${m}</span></label>`).join("");
+
+function openSheet(tx) {
+  editing = tx || null;
+  $("#sheet-title").textContent = tx ? "Edit expense" : "Add expense";
+  $("#f-amt").value = tx ? tx.amt.toLocaleString("en-NG") : "";
+  $("#f-fee").value = tx && tx.fee ? tx.fee : "";
+  $("#f-note").value = tx ? tx.note || "" : "";
+  $("#f-date").value = tx ? tx.date : (ym === ymOf(today()) ? iso(today()) : ym + "-01");
+  $("#f-date").max = iso(today());
+  const cat = tx ? tx.cat : "food", method = tx ? tx.method : S.lastMethod;
+  document.querySelectorAll("[name=cat]").forEach((r) => (r.checked = r.value === cat));
+  document.querySelectorAll("[name=method]").forEach((r) => (r.checked = r.value === method));
+  $("#fee-field").hidden = method !== "POS";
+  $("#f-del").hidden = !tx;
+  $("#f-err").textContent = "";
+  sheet.showModal();
+  if (!tx) setTimeout(() => $("#f-amt").focus(), 60);
+}
+const closeSheet = () => sheet.close();
+
+$("#quick").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-q]");
+  if (b) { $("#f-amt").value = (+b.dataset.q).toLocaleString("en-NG"); $("#f-err").textContent = ""; }
+});
+$("#f-method").addEventListener("change", (e) => {
+  $("#fee-field").hidden = e.target.value !== "POS";
+  if (e.target.value === "POS" && !$("#f-fee").value) $("#f-fee").focus();
+});
+$("#f-amt").addEventListener("input", () => ($("#f-err").textContent = ""));
+$("#close").addEventListener("click", closeSheet);
+sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
+
+$("#form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const amt = parseAmount($("#f-amt").value);
+  if (!(amt > 0)) { $("#f-err").textContent = "Enter how much you spent."; $("#f-amt").focus(); return; }
+  const method = $("[name=method]:checked")?.value || "Cash";
+  const fee = method === "POS" ? parseAmount($("#f-fee").value) || 0 : 0;
+  const rec = {
+    id: editing ? editing.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    amt, fee, method,
+    cat: $("[name=cat]:checked")?.value || "other",
+    note: $("#f-note").value.trim(),
+    date: $("#f-date").value || iso(today()),
+    ts: editing ? editing.ts : Date.now(),
+  };
+  if (editing) S.tx[S.tx.findIndex((t) => t.id === editing.id)] = rec;
+  else S.tx.push(rec);
+  S.lastMethod = method;
+  save();
+  closeSheet();
+  ym = rec.date.slice(0, 7);
+  render();
+  toast(editing ? "Expense updated" : `${money(rec.amt + rec.fee)} added to ${catById[rec.cat].name}`);
+});
+
+$("#f-del").addEventListener("click", () => {
+  const i = S.tx.findIndex((t) => t.id === editing.id);
+  if (i < 0) return;
+  const [gone] = S.tx.splice(i, 1);
+  save(); closeSheet(); render();
+  toast("Expense deleted", () => { S.tx.push(gone); save(); render(); });
+});
+
+// Page events -------------------------------------------------------------------
+$("#add").addEventListener("click", () => openSheet());
+$("#prev").addEventListener("click", () => shiftMonth(-1));
+$("#next").addEventListener("click", () => shiftMonth(1));
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-tab]");
+  if (t) { e.preventDefault(); go(t.dataset.tab); return; }
+  const ed = e.target.closest("[data-edit]");
+  if (ed) { openSheet(S.tx.find((x) => x.id === ed.dataset.edit)); return; }
+  const a = e.target.closest("[data-act]");
+  if (a) actions[a.dataset.act]();
+});
+$("#view").addEventListener("input", (e) => {
+  if (e.target.id === "q") {
+    filter.q = e.target.value;
+    const pos = e.target.selectionStart;
+    render();
+    const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos);
+  }
+});
+$("#view").addEventListener("change", (e) => {
+  if (e.target.id === "cat-filter") { filter.cat = e.target.value; render(); }
+  if (e.target.id === "b-total") {
+    const v = e.target.value.trim() ? parseAmount(e.target.value) : 0;
+    if (isNaN(v)) return toast("That budget doesn't look like an amount");
+    S.budget = v; save(); render(); toast(v ? `Budget set to ${money(v)}` : "Budget removed");
+  }
+  if (e.target.dataset.catBudget) {
+    const v = e.target.value.trim() ? parseAmount(e.target.value) : 0;
+    if (isNaN(v)) return toast("That limit doesn't look like an amount");
+    if (v) S.catBudgets[e.target.dataset.catBudget] = v; else delete S.catBudgets[e.target.dataset.catBudget];
+    save(); render();
+  }
+});
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const actions = {
+  csv() {
+    if (!S.tx.length) return toast("Nothing to export yet");
+    const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows = [...S.tx].sort((a, b) => a.date.localeCompare(b.date)).map((t) => [t.date, catById[t.cat]?.name || t.cat, t.amt, t.fee || 0, t.method, t.note || ""].map(q).join(","));
+    download(`owo-expenses-${iso(today())}.csv`, ["Date,Category,Amount (NGN),Charge (NGN),Paid with,Note", ...rows].join("\n"), "text/csv");
+  },
+  backup() {
+    download(`owo-backup-${iso(today())}.json`, JSON.stringify({ app: "owo", version: 1, ...S }, null, 2), "application/json");
+    toast("Backup downloaded");
+  },
+  restore() { $("#restore-file").click(); },
+  wipe() {
+    if (!confirm("Delete every expense and budget on this phone? This can't be undone.")) return;
+    S.tx = []; S.budget = 0; S.catBudgets = {}; save(); render(); toast("All data deleted");
+  },
+};
+$("#restore-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const d = JSON.parse(await file.text());
+    if (d.app !== "owo" || !Array.isArray(d.tx)) throw new Error();
+    const valid = d.tx.filter((t) => t && t.id && t.amt > 0 && /^\d{4}-\d{2}-\d{2}$/.test(t.date));
+    if (!confirm(`Replace what's on this phone with ${valid.length} expenses from the backup?`)) return;
+    S.tx = valid; S.budget = +d.budget || 0; S.catBudgets = d.catBudgets || {};
+    save(); render(); toast("Backup restored");
+  } catch { toast("That file isn't an Owo backup"); }
+});
+
+render();
+
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
